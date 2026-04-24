@@ -2098,12 +2098,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "llama-index", specifier = "==0.14.21" },
-    { name = "openai", specifier = "==1.109.1" },
-    { name = "pdfplumber", specifier = "==0.11.9" },
+    { name = "llama-index", specifier = "~=0.14.21" },
+    { name = "openai", specifier = "~=1.109.1" },
+    { name = "pdfplumber", specifier = "~=0.11.9" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "==8.3.5" },
-    { name = "python-docx", specifier = "==1.1.2" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = "~=8.3.5" },
+    { name = "python-docx", specifier = "~=1.1.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
 ]
 provides-extras = ["dev"]
