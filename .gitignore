@@ -35,4 +35,4 @@ outputs/
 
 # Dev
 planning/
-.claude/
+.claude/settings.local.json
