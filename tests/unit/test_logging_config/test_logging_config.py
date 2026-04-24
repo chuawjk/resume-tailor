@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+
 from resume_tailor.logging_config import configure_logging
 
 
