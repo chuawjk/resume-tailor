@@ -5,7 +5,12 @@ import tempfile
 from resume_tailor.cli import main
 
 
-def test_main_exits_zero_with_valid_paths(tmp_path, capsys):
+def _passthrough_editor(content: str, suffix: str) -> str:
+    return content
+
+
+def test_main_exits_zero_with_valid_paths(tmp_path, monkeypatch):
+    monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
     with (
         tempfile.NamedTemporaryFile(suffix=".pdf") as cv_file,
         tempfile.NamedTemporaryFile(suffix=".txt") as jd_file,
@@ -14,8 +19,6 @@ def test_main_exits_zero_with_valid_paths(tmp_path, capsys):
             ["--cv", cv_file.name, "--jd", jd_file.name, "--output-dir", str(tmp_path)]
         )
         assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "not implemented" in captured.out.lower()
 
 
 def test_main_exits_nonzero_with_missing_cv(tmp_path, capsys):
@@ -54,7 +57,8 @@ def test_main_exits_nonzero_with_missing_jd(tmp_path, capsys):
     assert "error" in captured.err.lower()
 
 
-def test_main_creates_timestamped_run_dir(tmp_path):
+def test_main_creates_timestamped_run_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
     cv_file = tmp_path / "cv.pdf"
     cv_file.write_text("cv content")
     jd_file = tmp_path / "jd.txt"
@@ -67,7 +71,8 @@ def test_main_creates_timestamped_run_dir(tmp_path):
     assert run_dirs[0].is_dir()
 
 
-def test_main_writes_log_to_run_dir(tmp_path):
+def test_main_writes_log_to_run_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
     cv_file = tmp_path / "cv.pdf"
     cv_file.write_text("cv content")
     jd_file = tmp_path / "jd.txt"
@@ -78,7 +83,8 @@ def test_main_writes_log_to_run_dir(tmp_path):
     assert (run_dir / "resume-tailor.log").exists()
 
 
-def test_main_accepts_custom_output_dir(tmp_path):
+def test_main_accepts_custom_output_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
     cv_file = tmp_path / "cv.pdf"
     cv_file.write_text("cv content")
     jd_file = tmp_path / "jd.txt"
