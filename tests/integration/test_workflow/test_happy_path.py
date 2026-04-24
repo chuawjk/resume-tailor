@@ -35,3 +35,5 @@ def test_happy_path_produces_resume_md(tmp_path, monkeypatch):
     content = output_file.read_text()
     assert len(content) > 0
     assert "Jane Smith" in content  # stub resume content
+    assert "<!-- FABRICATION_REPORT" not in content  # sentinel stripped before saving
+    assert content.startswith("#")  # valid markdown heading

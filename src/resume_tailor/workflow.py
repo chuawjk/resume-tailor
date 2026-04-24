@@ -66,7 +66,7 @@ class ResumeWorkflow(Workflow):
 
     @step
     async def gap_analysis(
-        self, ctx: Context, ev: Checkpoint1ResponseEvent
+        self, _ctx: Context, ev: Checkpoint1ResponseEvent
     ) -> Checkpoint2RequestEvent:
         logger.info("Pipeline stage: entering gap analysis")
         gap = analyse_gaps(ev.jd_profile, ev.cv_profile)
@@ -86,6 +86,6 @@ class ResumeWorkflow(Workflow):
         return Checkpoint3RequestEvent(tailored_resume=tailored, fabrication_report=report)
 
     @step
-    async def finalise(self, ctx: Context, ev: Checkpoint3ResponseEvent) -> StopEvent:
+    async def finalise(self, _ctx: Context, ev: Checkpoint3ResponseEvent) -> StopEvent:
         logger.info("Pipeline stage: finalising")
         return StopEvent(result=ev.final_resume)
