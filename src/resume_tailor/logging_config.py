@@ -14,8 +14,12 @@ def configure_logging(log_file: str, log_level: str) -> None:
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
 
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f"Invalid log level: {log_level!r}")
+
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(getattr(logging, log_level))
+    stdout_handler.setLevel(numeric_level)
     stdout_handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
 
     file_handler = logging.FileHandler(log_file)
