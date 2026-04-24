@@ -29,6 +29,10 @@ build/
 .env
 *.env
 
+# Data and output artifacts
+data/
+outputs/
+
 # Dev
 planning/
 .claude/
