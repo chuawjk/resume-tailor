@@ -26,7 +26,11 @@ class CVReaderError(Exception):
 
 
 class CVFileNotFoundError(CVReaderError):
-    """Raised when the CV file does not exist."""
+    """Raised when the CV file does not exist.
+
+    Note: does not subclass the built-in ``FileNotFoundError`` by design —
+    callers should catch ``CVReaderError`` or ``CVFileNotFoundError`` explicitly.
+    """
 
 
 class CVPermissionError(CVReaderError):
@@ -110,7 +114,7 @@ def _read_docx(path: Path) -> str:
     """
     from docx import Document
 
-    doc = Document(str(path))
+    doc = Document(path)
     parts: list[str] = []
 
     for para in doc.paragraphs:
