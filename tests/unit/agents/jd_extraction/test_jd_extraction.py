@@ -1,16 +1,18 @@
 """Unit tests for the JD Extraction Agent.
 
-All OpenAI API calls are mocked — no network required.
+All LLM calls are mocked — no network required.
 """
 
-import json
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from resume_tailor.agents.jd_extraction.agent import (
     JDExtractionParseError,
     JDExtractionValidationError,
+    JDProfile,
     extract_jd,
 )
 
@@ -18,59 +20,42 @@ from resume_tailor.agents.jd_extraction.agent import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
-VALID_JD_PROFILE = {
-    "role_title": "Senior Software Engineer",
-    "seniority": "Senior",
-    "hard_requirements": ["5+ years Python", "PostgreSQL", "REST API design"],
-    "nice_to_haves": ["Kubernetes", "GraphQL"],
-    "culture_signals": ["fast-paced", "remote-first"],
-}
+VALID_JD_PROFILE = JDProfile(
+    role_title="Senior Software Engineer",
+    seniority="Senior",
+    hard_requirements=["5+ years Python", "PostgreSQL", "REST API design"],
+    nice_to_haves=["Kubernetes", "GraphQL"],
+    culture_signals=["fast-paced", "remote-first"],
+)
 
 SAMPLE_JD_TEXT = "We are hiring a Senior Software Engineer. 5+ years Python required."
 
+# A real ValidationError instance, created by attempting to validate bad data.
+try:
+    JDProfile.model_validate({"role_title": 123, "seniority": None})
+except ValidationError as _e:
+    _SAMPLE_VALIDATION_ERROR = _e
 
-def _make_mock_client(content: str) -> MagicMock:
-    """Build a mock OpenAI client that returns *content* as the message content."""
-    mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = content
-    mock_client.chat.completions.create.return_value = mock_response
-    return mock_client
+
+def _mock_llm(return_value=None, side_effect=None) -> MagicMock:
+    """Return a mock LlamaIndex LLM whose structured_predict is configured."""
+    mock = MagicMock()
+    if side_effect is not None:
+        mock.structured_predict.side_effect = side_effect
+    else:
+        mock.structured_predict.return_value = return_value
+    return mock
 
 
 # ---------------------------------------------------------------------------
-# Test: schema validation of a well-formed response
+# Happy path
 # ---------------------------------------------------------------------------
 
 
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
 def test_extract_jd_returns_valid_schema(mock_openai_class: MagicMock) -> None:
-    """extract_jd returns a dict matching the required schema for a well-formed response."""
-    mock_openai_class.return_value = _make_mock_client(json.dumps(VALID_JD_PROFILE))
-
-    result = extract_jd(SAMPLE_JD_TEXT)
-
-    assert isinstance(result, dict)
-    assert isinstance(result["role_title"], str)
-    assert isinstance(result["seniority"], str)
-    assert isinstance(result["hard_requirements"], list)
-    assert isinstance(result["nice_to_haves"], list)
-    assert isinstance(result["culture_signals"], list)
-
-    # Confirm values were preserved
-    assert result["role_title"] == "Senior Software Engineer"
-    assert result["seniority"] == "Senior"
-    assert "5+ years Python" in result["hard_requirements"]
-    assert "Kubernetes" in result["nice_to_haves"]
-    assert "fast-paced" in result["culture_signals"]
-
-
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
-def test_extract_jd_only_returns_required_keys(mock_openai_class: MagicMock) -> None:
-    """extract_jd strips any extra keys returned by the LLM."""
-    extra_fields = {**VALID_JD_PROFILE, "extra_field": "should be stripped"}
-    mock_openai_class.return_value = _make_mock_client(json.dumps(extra_fields))
+    """extract_jd returns a dict matching the required schema."""
+    mock_openai_class.return_value = _mock_llm(return_value=VALID_JD_PROFILE)
 
     result = extract_jd(SAMPLE_JD_TEXT)
 
@@ -81,101 +66,97 @@ def test_extract_jd_only_returns_required_keys(mock_openai_class: MagicMock) -> 
         "nice_to_haves",
         "culture_signals",
     }
-    assert "extra_field" not in result
+    assert result["role_title"] == "Senior Software Engineer"
+    assert result["seniority"] == "Senior"
+    assert "5+ years Python" in result["hard_requirements"]
+    assert "Kubernetes" in result["nice_to_haves"]
+    assert "fast-paced" in result["culture_signals"]
+
+
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
+def test_extract_jd_extra_fields_stripped(mock_openai_class: MagicMock) -> None:
+    """model_config extra='ignore' ensures extra LLM fields never appear in output."""
+    profile_with_extra = JDProfile.model_validate(
+        {**VALID_JD_PROFILE.model_dump(), "unexpected_field": "should be gone"}
+    )
+    mock_openai_class.return_value = _mock_llm(return_value=profile_with_extra)
+
+    result = extract_jd(SAMPLE_JD_TEXT)
+
+    assert "unexpected_field" not in result
+    assert set(result.keys()) == {
+        "role_title",
+        "seniority",
+        "hard_requirements",
+        "nice_to_haves",
+        "culture_signals",
+    }
 
 
 # ---------------------------------------------------------------------------
-# Test: error on malformed response (non-JSON)
+# Validation error (schema mismatch)
 # ---------------------------------------------------------------------------
 
 
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
-def test_extract_jd_raises_parse_error_on_non_json(mock_openai_class: MagicMock) -> None:
-    """extract_jd raises JDExtractionParseError when the LLM returns non-JSON text."""
-    mock_openai_class.return_value = _make_mock_client("Sorry, I cannot help with that.")
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
+def test_extract_jd_raises_validation_error_on_schema_mismatch(
+    mock_openai_class: MagicMock,
+) -> None:
+    """extract_jd raises JDExtractionValidationError when structured_predict raises ValidationError."""  # noqa: E501
+    mock_openai_class.return_value = _mock_llm(side_effect=_SAMPLE_VALIDATION_ERROR)
+
+    with pytest.raises(JDExtractionValidationError):
+        extract_jd(SAMPLE_JD_TEXT)
+
+
+# ---------------------------------------------------------------------------
+# Parse error (unexpected LLM failure)
+# ---------------------------------------------------------------------------
+
+
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
+def test_extract_jd_raises_parse_error_on_unexpected_exception(
+    mock_openai_class: MagicMock,
+) -> None:
+    """extract_jd raises JDExtractionParseError when structured_predict raises unexpectedly."""
+    mock_openai_class.return_value = _mock_llm(
+        side_effect=ValueError("LLM returned unparseable content")
+    )
 
     with pytest.raises(JDExtractionParseError):
         extract_jd(SAMPLE_JD_TEXT)
 
 
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
-def test_extract_jd_raises_parse_error_on_json_array(mock_openai_class: MagicMock) -> None:
-    """extract_jd raises JDExtractionValidationError when the LLM returns a JSON array."""
-    mock_openai_class.return_value = _make_mock_client(json.dumps(["item1", "item2"]))
-
-    with pytest.raises(JDExtractionValidationError, match="JSON object"):
-        extract_jd(SAMPLE_JD_TEXT)
-
-
 # ---------------------------------------------------------------------------
-# Test: error on missing required fields
+# Logging
 # ---------------------------------------------------------------------------
 
 
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
-def test_extract_jd_raises_validation_error_on_missing_fields(
-    mock_openai_class: MagicMock,
-) -> None:
-    """extract_jd raises JDExtractionValidationError when required fields are absent."""
-    partial_response = {"role_title": "Engineer"}
-    mock_openai_class.return_value = _make_mock_client(json.dumps(partial_response))
-
-    with pytest.raises(JDExtractionValidationError, match="missing required fields"):
-        extract_jd(SAMPLE_JD_TEXT)
-
-
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
-def test_extract_jd_raises_validation_error_on_wrong_types(
-    mock_openai_class: MagicMock,
-) -> None:
-    """extract_jd raises JDExtractionValidationError when fields have wrong types."""
-    bad_types = {
-        "role_title": "Engineer",
-        "seniority": "Senior",
-        "hard_requirements": "Python",  # should be list, not str
-        "nice_to_haves": ["Kubernetes"],
-        "culture_signals": ["fast-paced"],
-    }
-    mock_openai_class.return_value = _make_mock_client(json.dumps(bad_types))
-
-    with pytest.raises(JDExtractionValidationError, match="wrong types"):
-        extract_jd(SAMPLE_JD_TEXT)
-
-
-# ---------------------------------------------------------------------------
-# Test: logging
-# ---------------------------------------------------------------------------
-
-
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
 def test_extract_jd_logs_info_on_start_and_completion(
     mock_openai_class: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """extract_jd emits INFO log on start and on completion."""
-    import logging
-
-    mock_openai_class.return_value = _make_mock_client(json.dumps(VALID_JD_PROFILE))
+    """extract_jd emits INFO on start and completion."""
+    mock_openai_class.return_value = _mock_llm(return_value=VALID_JD_PROFILE)
 
     with caplog.at_level(logging.INFO, logger="resume_tailor.agents.jd_extraction.agent"):
         extract_jd(SAMPLE_JD_TEXT)
 
     messages = [r.message for r in caplog.records]
-    assert any("started" in m for m in messages), f"No 'started' log found in {messages}"
-    assert any("completed" in m for m in messages), f"No 'completed' log found in {messages}"
+    assert any("started" in m for m in messages), f"No 'started' log: {messages}"
+    assert any("completed" in m for m in messages), f"No 'completed' log: {messages}"
 
 
-@patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI")
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
 def test_extract_jd_logs_info_on_failure(
     mock_openai_class: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """extract_jd emits INFO log with error type on parse failure."""
-    import logging
-
-    mock_openai_class.return_value = _make_mock_client("not json")
+    """extract_jd emits INFO with error type on failure."""
+    mock_openai_class.return_value = _mock_llm(side_effect=_SAMPLE_VALIDATION_ERROR)
 
     with caplog.at_level(logging.INFO, logger="resume_tailor.agents.jd_extraction.agent"):
-        with pytest.raises(JDExtractionParseError):
+        with pytest.raises(JDExtractionValidationError):
             extract_jd(SAMPLE_JD_TEXT)
 
     messages = [r.message for r in caplog.records]
-    assert any("failed" in m for m in messages), f"No 'failed' log found in {messages}"
+    assert any("failed" in m for m in messages), f"No 'failed' log: {messages}"

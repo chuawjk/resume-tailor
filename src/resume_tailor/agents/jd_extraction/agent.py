@@ -1,18 +1,21 @@
 """JD Extraction Agent.
 
-Calls an OpenAI LLM to parse a raw job description into a structured profile
-used by the downstream gap-analysis step.
+Calls the LlamaIndex OpenAI wrapper to parse a raw job description into a structured
+profile used by the downstream gap-analysis step. Structured output is enforced via
+the JDProfile Pydantic model — no manual JSON parsing required.
 
-The model defaults to the RESUME_TAILOR_MODEL environment variable, falling
-back to gpt-5.4-mini if unset.
+The model is read from the RESUME_TAILOR_MODEL environment variable, falling back
+to gpt-5.4-mini if unset.
 """
 
-import json
 import logging
 import os
 import time
 
-import openai
+from llama_index.core.llms import ChatMessage, MessageRole
+from llama_index.core.prompts import ChatPromptTemplate
+from llama_index.llms.openai import OpenAI
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from resume_tailor.agents.jd_extraction.prompts import SYSTEM_PROMPT, build_user_prompt
 
@@ -20,13 +23,27 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = os.environ.get("RESUME_TAILOR_MODEL", "gpt-5.4-mini")
 
-REQUIRED_FIELDS: dict[str, type] = {
-    "role_title": str,
-    "seniority": str,
-    "hard_requirements": list,
-    "nice_to_haves": list,
-    "culture_signals": list,
-}
+_CHAT_TEMPLATE = ChatPromptTemplate(
+    message_templates=[
+        ChatMessage(role=MessageRole.SYSTEM, content=SYSTEM_PROMPT),
+        ChatMessage(role=MessageRole.USER, content="{user_prompt}"),
+    ]
+)
+
+
+# ---------------------------------------------------------------------------
+# Output schema
+# ---------------------------------------------------------------------------
+
+
+class JDProfile(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    role_title: str
+    seniority: str
+    hard_requirements: list[str]
+    nice_to_haves: list[str]
+    culture_signals: list[str]
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +56,7 @@ class JDExtractionError(Exception):
 
 
 class JDExtractionParseError(JDExtractionError):
-    """Raised when the LLM response cannot be parsed as JSON."""
+    """Raised when the LLM response cannot be parsed as a valid JD profile."""
 
 
 class JDExtractionValidationError(JDExtractionError):
@@ -63,8 +80,8 @@ def extract_jd(jd_text: str, *, model: str = DEFAULT_MODEL) -> dict:
         nice_to_haves, culture_signals.
 
     Raises:
-        JDExtractionParseError: If the LLM response cannot be parsed as JSON.
-        JDExtractionValidationError: If the response JSON does not match the expected schema.
+        JDExtractionValidationError: If the LLM response does not match the JDProfile schema.
+        JDExtractionParseError: If the LLM response cannot be parsed at all.
     """
     logger.info("JD extraction started (model=%s)", model)
     start = time.monotonic()
@@ -73,80 +90,23 @@ def extract_jd(jd_text: str, *, model: str = DEFAULT_MODEL) -> dict:
     logger.debug("Prompt sent:\n%s", user_prompt)
 
     try:
-        client = openai.OpenAI()
-        response = client.chat.completions.create(
-            model=model,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
+        llm = OpenAI(model=model)
+        profile: JDProfile = llm.structured_predict(
+            JDProfile,
+            _CHAT_TEMPLATE,
+            user_prompt=user_prompt,
         )
-        raw_content = response.choices[0].message.content
-        logger.debug("Raw response:\n%s", raw_content)
+        logger.debug("Structured result: %s", profile)
 
-        result = _parse_response(raw_content)
-
+    except ValidationError as exc:
+        duration = time.monotonic() - start
+        logger.info("JD extraction failed after %.2fs: %s", duration, type(exc).__name__)
+        raise JDExtractionValidationError(f"LLM response failed schema validation: {exc}") from exc
     except Exception as exc:
         duration = time.monotonic() - start
-        logger.info(
-            "JD extraction failed after %.2fs: %s",
-            duration,
-            type(exc).__name__,
-        )
-        raise
+        logger.info("JD extraction failed after %.2fs: %s", duration, type(exc).__name__)
+        raise JDExtractionParseError(f"JD extraction failed: {exc}") from exc
 
     duration = time.monotonic() - start
     logger.info("JD extraction completed in %.2fs", duration)
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _parse_response(raw_content: str) -> dict:
-    """Parse and validate the raw LLM response string.
-
-    Args:
-        raw_content: The raw string returned by the LLM.
-
-    Returns:
-        Validated dict matching the JD profile schema.
-
-    Raises:
-        JDExtractionParseError: If ``raw_content`` is not valid JSON.
-        JDExtractionValidationError: If the JSON does not conform to the expected schema.
-    """
-    try:
-        data = json.loads(raw_content)
-    except (json.JSONDecodeError, TypeError) as exc:
-        raise JDExtractionParseError(
-            f"LLM response is not valid JSON: {exc!r}\nRaw content: {raw_content!r}"
-        ) from exc
-
-    if not isinstance(data, dict):
-        raise JDExtractionValidationError(
-            f"Expected a JSON object at the top level, got {type(data).__name__!r}"
-        )
-
-    missing = [field for field in REQUIRED_FIELDS if field not in data]
-    if missing:
-        raise JDExtractionValidationError(
-            f"LLM response is missing required fields: {missing!r}\nGot keys: {list(data.keys())!r}"
-        )
-
-    type_errors = []
-    for field, expected_type in REQUIRED_FIELDS.items():
-        if not isinstance(data[field], expected_type):
-            type_errors.append(
-                f"  {field!r}: expected {expected_type.__name__}, "
-                f"got {type(data[field]).__name__!r}"
-            )
-    if type_errors:
-        raise JDExtractionValidationError(
-            "LLM response has fields with wrong types:\n" + "\n".join(type_errors)
-        )
-
-    return {field: data[field] for field in REQUIRED_FIELDS}
+    return profile.model_dump()

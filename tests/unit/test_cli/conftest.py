@@ -33,8 +33,10 @@ _CV_PROFILE = {
 @pytest.fixture(autouse=True)
 def mock_agents():
     """Auto-mock all agent functions to prevent real API calls in CLI unit tests."""
+    from resume_tailor.agents.jd_extraction.agent import JDProfile
+
     with (
-        patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI") as mock_openai_class,
+        patch("resume_tailor.agents.jd_extraction.agent.OpenAI") as mock_openai_class,
         patch(
             "resume_tailor.agents.cv_extraction.agent.extract_cv",
             return_value=_CV_PROFILE,
@@ -52,12 +54,7 @@ def mock_agents():
             return_value={"verdict": "pass", "issues": []},
         ),
     ):
-        import json
-
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps(_JD_PROFILE)
-        mock_client.chat.completions.create.return_value = mock_response
-        mock_openai_class.return_value = mock_client
+        mock_llm = MagicMock()
+        mock_llm.structured_predict.return_value = JDProfile(**_JD_PROFILE)
+        mock_openai_class.return_value = mock_llm
         yield

@@ -1,22 +1,8 @@
 """Prompts for the JD Extraction Agent."""
 
 SYSTEM_PROMPT = """\
-You are an expert job description analyst. Your task is to extract structured information \
-from a raw job description.
-
-## Instructions
-
-Extract ONLY the following fields and return them as a single JSON object with no markdown \
-code fences, no commentary, and no extra keys:
-
-{
-  "role_title": "<string: the job title>",
-  "seniority": "<string: e.g. Junior, Mid-level, Senior, Staff, Principal, Lead, Director — \
-infer from title and requirements if not stated explicitly>",
-  "hard_requirements": ["<string>", ...],
-  "nice_to_haves": ["<string>", ...],
-  "culture_signals": ["<string>", ...]
-}
+You are an expert job description analyst. Extract structured information from the job \
+description provided by the user.
 
 ## Field definitions
 
@@ -59,15 +45,9 @@ background check notices, ADA statements)
 - Do NOT fabricate requirements not present in the JD.
 - Do NOT merge separate requirements into one string — keep each requirement atomic.
 - All list values must be plain strings.
-- Return valid JSON only — no markdown, no code fences, no prose outside the JSON object.
 """
 
 USER_PROMPT_TEMPLATE = """\
-Extract structured information from the following job description.
-
-Return a JSON object with exactly these keys: role_title, seniority, hard_requirements, \
-nice_to_haves, culture_signals.
-
 Job description:
 ---
 {jd_text}
