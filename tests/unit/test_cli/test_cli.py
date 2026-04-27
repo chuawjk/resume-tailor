@@ -1,7 +1,5 @@
 """Unit tests for the CLI entrypoint."""
 
-import tempfile
-
 from resume_tailor.cli import main
 
 
@@ -11,14 +9,12 @@ def _passthrough_editor(content: str, suffix: str) -> str:
 
 def test_main_exits_zero_with_valid_paths(tmp_path, monkeypatch):
     monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
-    with (
-        tempfile.NamedTemporaryFile(suffix=".pdf") as cv_file,
-        tempfile.NamedTemporaryFile(suffix=".txt") as jd_file,
-    ):
-        exit_code = main(
-            ["--cv", cv_file.name, "--jd", jd_file.name, "--output-dir", str(tmp_path)]
-        )
-        assert exit_code == 0
+    cv_file = tmp_path / "cv.txt"
+    cv_file.write_text("cv content")
+    jd_file = tmp_path / "jd.txt"
+    jd_file.write_text("job description")
+    exit_code = main(["--cv", str(cv_file), "--jd", str(jd_file), "--output-dir", str(tmp_path)])
+    assert exit_code == 0
 
 
 def test_main_exits_nonzero_with_missing_cv(tmp_path, capsys):
@@ -27,7 +23,7 @@ def test_main_exits_nonzero_with_missing_cv(tmp_path, capsys):
     exit_code = main(
         [
             "--cv",
-            str(tmp_path / "nonexistent.pdf"),
+            str(tmp_path / "nonexistent.txt"),
             "--jd",
             str(jd_file),
             "--output-dir",
@@ -40,7 +36,7 @@ def test_main_exits_nonzero_with_missing_cv(tmp_path, capsys):
 
 
 def test_main_exits_nonzero_with_missing_jd(tmp_path, capsys):
-    cv_file = tmp_path / "cv.pdf"
+    cv_file = tmp_path / "cv.txt"
     cv_file.write_text("cv content")
     exit_code = main(
         [
@@ -59,7 +55,7 @@ def test_main_exits_nonzero_with_missing_jd(tmp_path, capsys):
 
 def test_main_creates_timestamped_run_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
-    cv_file = tmp_path / "cv.pdf"
+    cv_file = tmp_path / "cv.txt"
     cv_file.write_text("cv content")
     jd_file = tmp_path / "jd.txt"
     jd_file.write_text("job description")
@@ -73,7 +69,7 @@ def test_main_creates_timestamped_run_dir(tmp_path, monkeypatch):
 
 def test_main_writes_log_to_run_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
-    cv_file = tmp_path / "cv.pdf"
+    cv_file = tmp_path / "cv.txt"
     cv_file.write_text("cv content")
     jd_file = tmp_path / "jd.txt"
     jd_file.write_text("job description")
@@ -85,7 +81,7 @@ def test_main_writes_log_to_run_dir(tmp_path, monkeypatch):
 
 def test_main_accepts_custom_output_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("resume_tailor.cli.edit_in_editor", _passthrough_editor)
-    cv_file = tmp_path / "cv.pdf"
+    cv_file = tmp_path / "cv.txt"
     cv_file.write_text("cv content")
     jd_file = tmp_path / "jd.txt"
     jd_file.write_text("job description")
@@ -93,3 +89,15 @@ def test_main_accepts_custom_output_dir(tmp_path, monkeypatch):
     exit_code = main(["--cv", str(cv_file), "--jd", str(jd_file), "--output-dir", str(custom_dir)])
     assert exit_code == 0
     assert custom_dir.exists()
+
+
+def test_main_exits_nonzero_with_unsupported_cv_format(tmp_path, capsys):
+    """CV files with unsupported extensions must produce an error and exit non-zero."""
+    cv_file = tmp_path / "cv.odt"
+    cv_file.write_text("cv content")
+    jd_file = tmp_path / "jd.txt"
+    jd_file.write_text("job description")
+    exit_code = main(["--cv", str(cv_file), "--jd", str(jd_file), "--output-dir", str(tmp_path)])
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert "error" in captured.err.lower()

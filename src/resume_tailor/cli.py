@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from resume_tailor.editor import edit_in_editor
+from resume_tailor.input_processing.cv_reader import CVReaderError, read_cv
 from resume_tailor.logging_config import configure_logging
 from resume_tailor.workflow import (
     Checkpoint1RequestEvent,
@@ -227,7 +228,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     output_path = Path(args.output) if args.output else run_dir / "resume.md"
-    cv_text = cv_path.read_text(encoding="utf-8", errors="replace")
+    try:
+        cv_text = read_cv(cv_path)
+    except CVReaderError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     jd_text = jd_path.read_text(encoding="utf-8")
     asyncio.run(run_workflow(cv_text, jd_text, output_path))
     print(f"\nSaved to {output_path}")
