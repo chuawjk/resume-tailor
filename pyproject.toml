@@ -29,6 +29,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/integration"]
+markers = [
+    "integration: marks tests as integration tests (require OPENAI_API_KEY; deselect with -m 'not integration')",
+]
 
 [tool.ruff]
 line-length = 100
