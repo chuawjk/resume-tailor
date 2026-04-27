@@ -31,7 +31,7 @@ _CV_PROFILE = {
 
 
 @pytest.fixture(autouse=True)
-def mock_agents(monkeypatch):
+def mock_agents():
     """Auto-mock all agent functions to prevent real API calls in CLI unit tests."""
     with (
         patch("resume_tailor.agents.jd_extraction.agent.openai.OpenAI") as mock_openai_class,

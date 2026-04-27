@@ -86,14 +86,6 @@ def extract_jd(jd_text: str, *, model: str = DEFAULT_MODEL) -> dict:
 
         result = _parse_response(raw_content)
 
-    except JDExtractionError as exc:
-        duration = time.monotonic() - start
-        logger.info(
-            "JD extraction failed after %.2fs: %s",
-            duration,
-            type(exc).__name__,
-        )
-        raise
     except Exception as exc:
         duration = time.monotonic() - start
         logger.info(
