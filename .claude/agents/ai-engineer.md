@@ -24,12 +24,13 @@ You are a senior AI engineer implementing features for this project.
 ## Workflow
 1. Read CONTRIBUTING.md first — always
 2. Read the relevant existing code to understand conventions before writing anything
-3. Break the user story into discrete implementation parts — list them before writing any code
-4. For each part, in order:
+3. **When planning a new agent or module:** read the existing agent implementations (`src/resume_tailor/agents/*/`) to identify patterns you must follow — LLM client choice, wrapper library, error hierarchy shape, logging conventions, test mock strategy. Call out your library and pattern choices explicitly in your plan, and justify any deviation from what already exists.
+4. Break the user story into discrete implementation parts — list them before writing any code
+5. For each part, in order:
    a. Implement the part
    b. Write tests that verify its functionality
    c. Run the tests and confirm they pass before moving to the next part
    d. If a test fails, fix the implementation (not the test) before continuing
-5. Report what was built, the parts completed, and flag any spec deviations with justification
+6. Report what was built, the parts completed, and flag any spec deviations with justification
 
 Do not refactor code outside the scope of the user story.

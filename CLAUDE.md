@@ -22,36 +22,14 @@ Do not skip steps. Do not merge without human approval.
 
 ## Agent briefing standards
 
-Each agent starts cold with no project context. Brief them with enough information to make good judgement calls, not just follow narrow instructions.
+Each agent starts cold with no project context. Brief them well — the behavioral checks are baked into the agent definitions, but context must come from you.
 
-### Step 1 — @ai-engineer (plan)
+### What to include in every brief
 
-Include in the brief:
-- Full story row from the backlog: **all fields**, including Acceptance criteria, Non-goals, Dependencies, Evaluation approach, Notes
-- Treat the **Evaluation approach** field as a required deliverable (e.g. an eval set must ship with the PR), not as metadata
-- Instruct the engineer to **read existing agent and module implementations** before planning, to identify patterns they must follow (LLM client choice, error hierarchy shape, logging conventions, test structure)
-- Ask them to explicitly call out any library or pattern decisions and justify them
-
-### Step 2 — @tech-lead (plan review)
-
-Include in the brief:
-- The full plan from step 1
-- The contents of `planning/resume-tailoring-architecture.md`
-- An explicit instruction: **"Read the existing agent implementations and `workflow.py` to verify the plan is architecturally consistent with the rest of the codebase"**
-- Ask: does this plan use the same LLM client, wrapper library, error hierarchy pattern, and logging approach as existing agents?
-
-### Step 5 — @quality-analyst (QA)
-
-Include in the brief:
-- Full story row from the backlog: **all fields** (not just Acceptance criteria)
-- Explicit instruction: **"Check for deliverables implied by the Evaluation approach, Notes, and Dependencies fields — not just the Acceptance criteria bullets"**
-- Ask: is anything described in the backlog row missing from the implementation?
-
-### Step 7 — @tech-lead (PR review)
-
-Include in the brief:
-- The PR diff and all prior PR comments
-- An explicit instruction: **"Read the existing agent implementations and `workflow.py` to check for architectural consistency"** — does this PR follow the same patterns as the rest of the codebase?
+- **Full story row from the backlog** (all fields: Acceptance criteria, Non-goals, Dependencies, Evaluation approach, Notes). Do not summarise — paste them in full.
+- **Treat the Evaluation approach field as a required deliverable**, not metadata. If it describes an eval set, that eval set must ship with the PR.
+- **For tech-lead plan reviews**: include the plan text. The agent will read the architecture doc and existing agents itself.
+- **For tech-lead PR reviews**: include the PR number and any prior review comments. The agent will read the diff and existing agents itself.
 
 ---
 
