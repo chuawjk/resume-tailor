@@ -64,7 +64,4 @@ def read_txt(path: Path) -> str:
     Re-raises ``UnicodeDecodeError`` as-is so that each calling reader module
     can catch it specifically and translate it into a domain-typed error.
     """
-    try:
-        return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        raise
+    return path.read_text(encoding="utf-8")
