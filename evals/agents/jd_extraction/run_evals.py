@@ -13,7 +13,7 @@ Grading criteria (per backlog):
 Ship threshold: 7 of 8 fixtures pass all checks.
 
 Usage:
-    OPENAI_API_KEY=sk-... uv run python evals/jd_extraction/run_evals.py
+    OPENAI_API_KEY=sk-... uv run python evals/agents/jd_extraction/run_evals.py
 
 Optional env vars:
     RESUME_TAILOR_MODEL   — override model (default: gpt-5.4-mini)
@@ -24,11 +24,11 @@ import os
 import sys
 import textwrap
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, os.path.join(_ROOT, "src"))
 sys.path.insert(0, _ROOT)
 
-from evals.jd_extraction.fixtures import FIXTURES  # noqa: E402
+from evals.agents.jd_extraction.fixtures import FIXTURES  # noqa: E402
 from resume_tailor.agents.jd_extraction.agent import extract_jd  # noqa: E402
 
 SHIP_THRESHOLD = 7
@@ -93,11 +93,8 @@ def grade(result: dict, checks: dict) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def run_evals() -> None:
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("ERROR: OPENAI_API_KEY not set.", file=sys.stderr)
-        sys.exit(1)
-
+def run_evals() -> bool:
+    """Run all JD extraction fixtures. Returns True if the suite passes the ship threshold."""
     results = []
     print(f"Running {len(FIXTURES)} eval fixtures...\n")
 
@@ -106,7 +103,7 @@ def run_evals() -> None:
         print(f"[{i}/{len(FIXTURES)}] {name} ... ", end="", flush=True)
 
         try:
-            result = extract_jd(fixture["jd"])
+            result = extract_jd(fixture["jd"], temperature=0)
             failures = grade(result, fixture["checks"])
 
             if failures:
@@ -143,8 +140,11 @@ def run_evals() -> None:
         for f in failures:
             print(f"         {f}")
 
-    sys.exit(0 if passed >= SHIP_THRESHOLD else 1)
+    return passed >= SHIP_THRESHOLD
 
 
 if __name__ == "__main__":
-    run_evals()
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("ERROR: OPENAI_API_KEY not set.", file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0 if run_evals() else 1)

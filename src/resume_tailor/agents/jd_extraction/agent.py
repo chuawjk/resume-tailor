@@ -68,12 +68,15 @@ class JDExtractionValidationError(JDExtractionError):
 # ---------------------------------------------------------------------------
 
 
-def extract_jd(jd_text: str, *, model: str = DEFAULT_MODEL) -> dict:
+def extract_jd(
+    jd_text: str, *, model: str = DEFAULT_MODEL, temperature: float | None = None
+) -> dict:
     """Extract a structured JD profile from raw job description text.
 
     Args:
         jd_text: Raw text of the job description.
         model: OpenAI model identifier to use for extraction.
+        temperature: Sampling temperature. Pass 0.0 for deterministic output (e.g. evals).
 
     Returns:
         A dict with keys: role_title, seniority, hard_requirements,
@@ -90,7 +93,10 @@ def extract_jd(jd_text: str, *, model: str = DEFAULT_MODEL) -> dict:
     logger.debug("Prompt sent:\n%s", user_prompt)
 
     try:
-        llm = OpenAI(model=model)
+        llm_kwargs = {"model": model}
+        if temperature is not None:
+            llm_kwargs["temperature"] = temperature
+        llm = OpenAI(**llm_kwargs)
         profile: JDProfile = llm.structured_predict(
             JDProfile,
             _CHAT_TEMPLATE,
