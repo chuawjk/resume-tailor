@@ -11,6 +11,7 @@ from pathlib import Path
 
 from resume_tailor.editor import edit_in_editor
 from resume_tailor.input_processing.cv_reader import CVReaderError, read_cv
+from resume_tailor.input_processing.jd_reader import JDReaderError, read_jd
 from resume_tailor.logging_config import configure_logging
 from resume_tailor.workflow import (
     Checkpoint1RequestEvent,
@@ -52,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--jd",
         required=True,
         metavar="PATH",
-        help="Path to the job description file.",
+        help="Path to the job description file (PDF, DOCX, or TXT).",
     )
     parser.add_argument(
         "--output-dir",
@@ -216,11 +217,14 @@ def main(argv: list[str] | None = None) -> int:
     cv_path = Path(args.cv)
     jd_path = Path(args.jd)
 
+    # The CV uses an upfront existence guard so both CV and JD missing errors
+    # are collected and shown together before any reads are attempted.
+    # The JD error is caught at read time via typed errors from jd_reader —
+    # the asymmetry is intentional: jd_reader raises JDFileNotFoundError for
+    # missing files, so no manual guard is needed for the JD path.
     errors: list[str] = []
     if not cv_path.exists():
         errors.append(f"CV file not found: {cv_path}")
-    if not jd_path.exists():
-        errors.append(f"JD file not found: {jd_path}")
 
     if errors:
         for error in errors:
@@ -233,7 +237,11 @@ def main(argv: list[str] | None = None) -> int:
     except CVReaderError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    jd_text = jd_path.read_text(encoding="utf-8")
+    try:
+        jd_text = read_jd(jd_path)
+    except JDReaderError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     asyncio.run(run_workflow(cv_text, jd_text, output_path))
     print(f"\nSaved to {output_path}")
     return 0
