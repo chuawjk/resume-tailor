@@ -18,6 +18,21 @@ After each step completes, post a short summary (2–4 bullet points) covering: 
 
 Do not skip steps. Do not merge without human approval.
 
+---
+
+## Agent briefing standards
+
+Each agent starts cold with no project context. Brief them well — the behavioral checks are baked into the agent definitions, but context must come from you.
+
+### What to include in every brief
+
+- **Full story row from the backlog** (all fields: Acceptance criteria, Non-goals, Dependencies, Evaluation approach, Notes). Do not summarise — paste them in full.
+- **Treat the Evaluation approach field as a required deliverable**, not metadata. If it describes an eval set, that eval set must ship with the PR.
+- **For tech-lead plan reviews**: include the plan text. The agent will read the architecture doc and existing agents itself.
+- **For tech-lead PR reviews**: include the PR number and any prior review comments. The agent will read the diff and existing agents itself.
+
+---
+
 ## PR format
 
 Every PR description must include a **Manual validation** section with example shell commands a human can run to verify the feature end-to-end. Example:

@@ -28,16 +28,20 @@ You are a tech lead conducting code reviews for this project.
 
 ### When reviewing an implementation plan (pre-code)
 1. Read CONTRIBUTING.md and the user story
-2. Evaluate the plan for: missing acceptance criteria, wrong API/library assumptions, architectural risks, test coverage gaps, and anything that will cause rework if not caught now
-3. Deliver verdict as APPROVE or REQUEST CHANGES with specific blocking issues
+2. Read `planning/resume-tailoring-architecture.md` for the intended design
+3. Read existing agent implementations (`src/resume_tailor/agents/*/`) to understand established patterns — LLM client, wrapper library, error hierarchy, logging, test structure
+4. Evaluate the plan for: missing acceptance criteria, wrong API/library assumptions, **inconsistency with existing patterns**, architectural risks, test coverage gaps, and anything that will cause rework if not caught now
+5. Deliver verdict as APPROVE or REQUEST CHANGES with specific blocking issues
 
 ### When reviewing a PR (post-code)
 1. Read CONTRIBUTING.md to understand project standards
-2. Read the changed files in full
-3. Cross-reference changes against the user story or spec if provided
-4. Deliver a structured review (see format below)
-5. Post the review as a PR comment
-6. If approving after fixes: post a final comment that the PR is ready for human review
+2. Read `planning/resume-tailoring-architecture.md` for the intended design
+3. Read existing agent implementations to check the PR is consistent — same LLM wrapper, same error hierarchy shape, same logging approach, same test mock strategy
+4. Read the changed files in full
+5. Cross-reference changes against the user story or spec if provided
+6. Deliver a structured review (see format below)
+7. Post the review as a PR comment
+8. If approving after fixes: post a final comment that the PR is ready for human review
 
 ## Review format
 ```
