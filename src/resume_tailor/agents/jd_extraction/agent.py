@@ -1,14 +1,15 @@
 """JD Extraction Agent.
 
-Calls an OpenAI LLM (gpt-4o-mini) to parse a raw job description into a structured
-profile used by the downstream gap-analysis step.
+Calls an OpenAI LLM to parse a raw job description into a structured profile
+used by the downstream gap-analysis step.
 
-Note: The backlog listed "gpt-5.4-mini" which is not a real OpenAI model.
-gpt-4o-mini has been substituted as the default.
+The model defaults to the RESUME_TAILOR_MODEL environment variable, falling
+back to gpt-5.4-mini if unset.
 """
 
 import json
 import logging
+import os
 import time
 
 import openai
@@ -17,7 +18,7 @@ from resume_tailor.agents.jd_extraction.prompts import SYSTEM_PROMPT, build_user
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = os.environ.get("RESUME_TAILOR_MODEL", "gpt-5.4-mini")
 
 REQUIRED_FIELDS: dict[str, type] = {
     "role_title": str,
