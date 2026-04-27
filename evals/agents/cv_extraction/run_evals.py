@@ -97,7 +97,7 @@ def run_evals() -> bool:
         print(f"[{i}/{len(FIXTURES)}] {name} ... ", end="", flush=True)
 
         try:
-            result = extract_cv(fixture["cv"], temperature=0)
+            result = extract_cv(fixture["cv"], temperature=0.0)
             failures = grade(result, fixture["checks"])
 
             if failures:
