@@ -47,14 +47,11 @@ background check notices, ADA statements)
 - All list values must be plain strings.
 """
 
-USER_PROMPT_TEMPLATE = """\
-Job description:
----
-{jd_text}
----
-"""
-
 
 def build_user_prompt(jd_text: str) -> str:
-    """Return the user prompt with the JD text interpolated."""
-    return USER_PROMPT_TEMPLATE.format(jd_text=jd_text)
+    """Return the user prompt with the JD text interpolated.
+
+    Uses an f-string (not str.format) so JD text containing literal
+    curly braces does not raise KeyError.
+    """
+    return f"Job description:\n---\n{jd_text}\n---\n"

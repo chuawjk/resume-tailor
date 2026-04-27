@@ -30,11 +30,19 @@ VALID_JD_PROFILE = JDProfile(
 
 SAMPLE_JD_TEXT = "We are hiring a Senior Software Engineer. 5+ years Python required."
 
-# A real ValidationError instance, created by attempting to validate bad data.
+# ValidationError: wrong types on existing fields.
 try:
     JDProfile.model_validate({"role_title": 123, "seniority": None})
 except ValidationError as _e:
-    _SAMPLE_VALIDATION_ERROR = _e
+    _WRONG_TYPE_ERROR = _e
+
+# ValidationError: missing required fields.
+try:
+    JDProfile.model_validate({"role_title": "Engineer"})
+except ValidationError as _e:
+    _MISSING_FIELDS_ERROR = _e
+
+_SAMPLE_VALIDATION_ERROR = _WRONG_TYPE_ERROR
 
 
 def _mock_llm(return_value=None, side_effect=None) -> MagicMock:
@@ -99,11 +107,22 @@ def test_extract_jd_extra_fields_stripped(mock_openai_class: MagicMock) -> None:
 
 
 @patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
-def test_extract_jd_raises_validation_error_on_schema_mismatch(
+def test_extract_jd_raises_validation_error_on_wrong_types(
     mock_openai_class: MagicMock,
 ) -> None:
-    """extract_jd raises JDExtractionValidationError when structured_predict raises ValidationError."""  # noqa: E501
-    mock_openai_class.return_value = _mock_llm(side_effect=_SAMPLE_VALIDATION_ERROR)
+    """extract_jd raises JDExtractionValidationError when fields have wrong types."""
+    mock_openai_class.return_value = _mock_llm(side_effect=_WRONG_TYPE_ERROR)
+
+    with pytest.raises(JDExtractionValidationError):
+        extract_jd(SAMPLE_JD_TEXT)
+
+
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
+def test_extract_jd_raises_validation_error_on_missing_fields(
+    mock_openai_class: MagicMock,
+) -> None:
+    """extract_jd raises JDExtractionValidationError when required fields are absent."""
+    mock_openai_class.return_value = _mock_llm(side_effect=_MISSING_FIELDS_ERROR)
 
     with pytest.raises(JDExtractionValidationError):
         extract_jd(SAMPLE_JD_TEXT)
@@ -160,3 +179,20 @@ def test_extract_jd_logs_info_on_failure(
 
     messages = [r.message for r in caplog.records]
     assert any("failed" in m for m in messages), f"No 'failed' log: {messages}"
+
+
+@patch("resume_tailor.agents.jd_extraction.agent.OpenAI")
+def test_extract_jd_logs_debug_prompt_and_result(
+    mock_openai_class: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """extract_jd emits DEBUG logs for the prompt sent and the structured result."""
+    mock_openai_class.return_value = _mock_llm(return_value=VALID_JD_PROFILE)
+
+    with caplog.at_level(logging.DEBUG, logger="resume_tailor.agents.jd_extraction.agent"):
+        extract_jd(SAMPLE_JD_TEXT)
+
+    messages = [r.message for r in caplog.records]
+    assert any("Prompt sent" in m for m in messages), f"No 'Prompt sent' DEBUG log: {messages}"
+    assert any("Structured result" in m for m in messages), (
+        f"No 'Structured result' DEBUG log: {messages}"
+    )
