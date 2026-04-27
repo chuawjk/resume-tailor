@@ -10,6 +10,7 @@ import pytest
 from resume_tailor.input_processing.jd_reader import (
     JDEncodingError,
     JDFileNotFoundError,
+    JDPermissionError,
     JDUnsupportedFormatError,
     read_jd,
 )
@@ -140,5 +141,20 @@ def test_encoding_error_on_non_utf8_txt(tmp_path):
     # Write bytes that are valid latin-1 but not valid UTF-8
     f.write_bytes(b"Job Description for Jos\xe9\n")
     with pytest.raises(JDEncodingError) as exc_info:
+        read_jd(f)
+    assert str(f) in str(exc_info.value)
+
+
+def test_permission_error_raises_jd_permission_error(tmp_path, monkeypatch):
+    """PermissionError from the OS must be wrapped as JDPermissionError."""
+    f = tmp_path / "jd.txt"
+    f.write_text("some content")
+
+    import resume_tailor.input_processing.jd_reader as _jdr
+
+    monkeypatch.setattr(
+        _jdr, "read_txt", lambda p: (_ for _ in ()).throw(PermissionError("denied"))
+    )
+    with pytest.raises(JDPermissionError) as exc_info:
         read_jd(f)
     assert str(f) in str(exc_info.value)
