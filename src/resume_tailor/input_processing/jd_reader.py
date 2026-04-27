@@ -1,4 +1,4 @@
-"""CV reader — extracts raw text from PDF, DOCX, and plain-text CV files."""
+"""JD reader — extracts raw text from PDF, DOCX, and plain-text job description files."""
 
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ from resume_tailor.input_processing._file_reader import (
 )
 
 __all__ = [
-    "read_cv",
-    "CVReaderError",
-    "CVFileNotFoundError",
-    "CVPermissionError",
-    "CVUnsupportedFormatError",
-    "CVEncodingError",
+    "read_jd",
+    "JDReaderError",
+    "JDFileNotFoundError",
+    "JDPermissionError",
+    "JDUnsupportedFormatError",
+    "JDEncodingError",
     "SUPPORTED_EXTENSIONS",
 ]
 
@@ -27,27 +27,27 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-class CVReaderError(Exception):
-    """Base class for all CV reader errors."""
+class JDReaderError(Exception):
+    """Base class for all JD reader errors."""
 
 
-class CVFileNotFoundError(CVReaderError):
-    """Raised when the CV file does not exist.
+class JDFileNotFoundError(JDReaderError):
+    """Raised when the JD file does not exist.
 
     Note: does not subclass the built-in ``FileNotFoundError`` by design —
-    callers should catch ``CVReaderError`` or ``CVFileNotFoundError`` explicitly.
+    callers should catch ``JDReaderError`` or ``JDFileNotFoundError`` explicitly.
     """
 
 
-class CVPermissionError(CVReaderError):
-    """Raised when the CV file cannot be read due to a permission error."""
+class JDPermissionError(JDReaderError):
+    """Raised when the JD file cannot be read due to a permission error."""
 
 
-class CVUnsupportedFormatError(CVReaderError):
+class JDUnsupportedFormatError(JDReaderError):
     """Raised when the file extension is not supported."""
 
 
-class CVEncodingError(CVReaderError):
+class JDEncodingError(JDReaderError):
     """Raised when a plain-text file cannot be decoded as UTF-8."""
 
 
@@ -56,32 +56,35 @@ class CVEncodingError(CVReaderError):
 # ---------------------------------------------------------------------------
 
 
-def read_cv(path: str | Path) -> str:
-    """Read a CV file and return its raw text content.
+def read_jd(path: str | Path) -> str:
+    """Read a job description file and return its raw text content.
 
     Dispatches on the file extension (case-insensitive):
     - ``.pdf``  — extracted via pdfplumber
     - ``.docx`` — extracted via python-docx (paragraphs + table cells)
     - ``.txt``  — read as UTF-8
 
+    Extension check is performed first, then existence check — matching the
+    behaviour of ``read_cv``.
+
     Raises:
-        CVFileNotFoundError: If the file does not exist.
-        CVPermissionError: If the file cannot be read due to OS permissions.
-        CVUnsupportedFormatError: If the extension is not one of the supported
+        JDFileNotFoundError: If the file does not exist.
+        JDPermissionError: If the file cannot be read due to OS permissions.
+        JDUnsupportedFormatError: If the extension is not one of the supported
             formats (.pdf, .docx, .txt).
-        CVEncodingError: If a .txt file contains non-UTF-8 bytes.
+        JDEncodingError: If a .txt file contains non-UTF-8 bytes.
     """
     path = Path(path)
     ext = path.suffix.lower()
 
     if ext not in SUPPORTED_EXTENSIONS:
         supported = ", ".join(SUPPORTED_EXTENSIONS)
-        raise CVUnsupportedFormatError(
+        raise JDUnsupportedFormatError(
             f"Unsupported file format {path.suffix!r}. Supported formats: {supported}"
         )
 
     if not path.exists():
-        raise CVFileNotFoundError(f"CV file not found: {path}")
+        raise JDFileNotFoundError(f"JD file not found: {path}")
 
     try:
         if ext == ".pdf":
@@ -92,9 +95,9 @@ def read_cv(path: str | Path) -> str:
             try:
                 return read_txt(path)
             except UnicodeDecodeError as exc:
-                raise CVEncodingError(
-                    f"CV file is not valid UTF-8: {path}. "
+                raise JDEncodingError(
+                    f"JD file is not valid UTF-8: {path}. "
                     "Ensure the file is saved with UTF-8 encoding."
                 ) from exc
     except PermissionError as exc:
-        raise CVPermissionError(f"Permission denied reading CV file: {path}") from exc
+        raise JDPermissionError(f"Permission denied reading JD file: {path}") from exc
