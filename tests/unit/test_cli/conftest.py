@@ -42,8 +42,8 @@ def mock_agents():
             return_value=_CV_PROFILE,
         ),
         patch(
-            "resume_tailor.agents.gap_analysis.agent.analyse_gaps",
-            return_value={"gaps": [], "matches": []},
+            "resume_tailor.workflow.analyse_gaps",
+            return_value={"strong_matches": [], "weak_matches": [], "gaps": []},
         ),
         patch(
             "resume_tailor.agents.resume_tailoring.agent.tailor_resume",
