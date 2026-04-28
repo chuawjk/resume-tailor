@@ -47,7 +47,15 @@ def test_happy_path_produces_resume_md(tmp_path, monkeypatch):
     output_dir = tmp_path / "outputs"
     output_file = tmp_path / "resume.md"
 
-    with patch("resume_tailor.workflow.extract_cv", return_value=_STUB_CV_PROFILE):
+    _STUB_GAP_ANALYSIS = {
+        "strong_matches": ["Python"],
+        "weak_matches": [],
+        "gaps": [],
+    }
+    with (
+        patch("resume_tailor.workflow.extract_cv", return_value=_STUB_CV_PROFILE),
+        patch("resume_tailor.workflow.analyse_gaps", return_value=_STUB_GAP_ANALYSIS),
+    ):
         exit_code = main(
             [
                 "--cv",
